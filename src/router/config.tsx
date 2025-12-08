@@ -1,0 +1,38 @@
+import { lazy } from 'react';
+import type { RouteObject } from 'react-router-dom';
+
+const HomePage = lazy(() => import('../pages/home/page'));
+const ListingsPage = lazy(() => import('../pages/listings/page'));
+const ListingDetailPage = lazy(() => import('../pages/listing-detail/page'));
+const AboutPage = lazy(() => import('../pages/about/page'));
+const ReviewsPage = lazy(() => import('../pages/reviews/page'));
+const NotFound = lazy(() => import('../pages/NotFound'));
+
+const routes: RouteObject[] = [
+  {
+    path: '/',
+    element: <HomePage />,
+  },
+  {
+    path: '/listings',
+    element: <ListingsPage />,
+  },
+  {
+    path: '/listing/:id',
+    element: <ListingDetailPage />,
+  },
+  {
+    path: '/about',
+    element: <AboutPage />,
+  },
+  {
+    path: '/reviews',
+    element: <ReviewsPage />,
+  },
+  {
+    path: '*',
+    element: <NotFound />,
+  },
+];
+
+export default routes;
