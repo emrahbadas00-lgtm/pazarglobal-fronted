@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../stores/authStore';
 
 type Message = {
   id: string;
@@ -104,6 +105,7 @@ const compressImage = async (file: File, maxSizeMB: number = 0.9): Promise<File>
 
 export default function ChatBox() {
   const navigate = useNavigate();
+  const { user, customUser, profile, checkAuth } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('listing');
   const [messages, setMessages] = useState<Message[]>([
@@ -135,6 +137,11 @@ export default function ChatBox() {
     scrollToBottom();
   }, [messages]);
 
+  // Try to hydrate auth context so agent backend can map the visitor to a real account
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
+
   const handleListingClick = (listingId: string) => {
     navigate(`/listing/${listingId}`);
     setIsOpen(false);
@@ -146,7 +153,17 @@ export default function ChatBox() {
     setError(null);
     currentMessageRef.current = '';
 
-    const userId = getUserId();
+    const sessionToken = localStorage.getItem('session_token');
+    const storedUserId = localStorage.getItem('user_id');
+    const resolvedUserId = customUser?.id || user?.id || storedUserId || getUserId();
+    const userContext = {
+      user_id: resolvedUserId,
+      session_token: sessionToken || undefined,
+      email: user?.email || customUser?.email || undefined,
+      phone: customUser?.phone || undefined,
+      name: profile?.full_name || customUser?.full_name || user?.user_metadata?.full_name || undefined,
+      source: 'web-chat',
+    };
 
     // Add user message to conversation history
     conversationHistory.current.push({
@@ -162,8 +179,9 @@ export default function ChatBox() {
         },
         body: JSON.stringify({
           message,
-          user_id: userId,
-          conversation_history: conversationHistory.current
+          user_id: resolvedUserId,
+          conversation_history: conversationHistory.current,
+          user_context: userContext,
         }),
       });
 

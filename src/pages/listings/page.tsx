@@ -7,7 +7,17 @@ import TopNavigation from '../../components/feature/TopNavigation';
 import Footer from '../home/components/Footer';
 import { listings } from '../../mocks/listings';
 import { fetchListingsWithFilters, type DBListing } from '../../services/supabase';
+import { supabase } from '../../lib/supabase';
 import type { Listing, FilterState } from '../../types/listing';
+
+// Resolve a Supabase storage path or direct URL to a public URL
+const resolveImageUrl = (path?: string | null) => {
+  if (!path) return null;
+  if (path.startsWith('http')) return path;
+
+  const { data } = supabase.storage.from('product-images').getPublicUrl(path);
+  return data.publicUrl || null;
+};
 
 export default function ListingsPage() {
   const [isScrolled, setIsScrolled] = useState(false);
@@ -22,7 +32,7 @@ export default function ListingsPage() {
 
   const [filters, setFilters] = useState<FilterState>({
     categories: [],
-    priceRange: [0, 50000],
+    priceRange: [0, 1000000],
     location: '',
     condition: [],
     isPremium: false,
@@ -60,8 +70,13 @@ export default function ListingsPage() {
           category: item.category,
           location: item.location,
           condition: item.condition,
-          image: item.images[0] || item.image_url || 'https://via.placeholder.com/400x300',
-          images: item.images && item.images.length > 0 ? item.images : undefined,
+          image:
+            resolveImageUrl(item.images?.[0]) ||
+            resolveImageUrl(item.image_url) ||
+            'https://via.placeholder.com/400x300',
+          images: item.images
+            ?.map(img => resolveImageUrl(img))
+            .filter((url): url is string => Boolean(url)),
           isPremium: item.is_premium || false,
           views: item.views,
           createdAt: item.created_at,
@@ -164,7 +179,7 @@ export default function ListingsPage() {
   const clearFilters = () => {
     setFilters({
       categories: [],
-      priceRange: [0, 50000],
+      priceRange: [0, 1000000],
       location: '',
       condition: [],
       isPremium: false,
