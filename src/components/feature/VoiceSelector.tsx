@@ -15,11 +15,14 @@ export default function VoiceSelector({ selectedVoice, onVoiceSelect }: VoiceSel
       const availableVoices = window.speechSynthesis?.getVoices() || [];
       console.log('🎤 Available voices:', availableVoices.length, 'voices loaded');
       
-      // Filter Turkish voices or fallback to all voices
-      const turkishVoices = availableVoices.filter(v => v.lang.startsWith('tr'));
-      const voicesToUse = turkishVoices.length > 0 ? turkishVoices : availableVoices;
+      // Filter Turkish voices and exclude Tolga (has audio quality issues)
+      const turkishVoices = availableVoices.filter(v => 
+        v.lang.startsWith('tr') && !v.name.toLowerCase().includes('tolga')
+      );
+      const voicesToUse = turkishVoices.length > 0 ? turkishVoices : 
+        availableVoices.filter(v => !v.name.toLowerCase().includes('tolga'));
       
-      console.log('🎤 Using', voicesToUse.length, 'voices for selection');
+      console.log('🎤 Using', voicesToUse.length, 'voices for selection (Tolga filtered out)');
       setVoices(voicesToUse);
     };
 
@@ -79,12 +82,12 @@ export default function VoiceSelector({ selectedVoice, onVoiceSelect }: VoiceSel
                     setShowMenu(false);
                     console.log('🎤 Voice selected:', voice.name);
                   }}
-                  className={`w-full text-left px-3 py-2 rounded hover:bg-white/10 transition-all text-sm flex items-center ${
+                  className={`w-full px-3 py-2 rounded hover:bg-white/10 transition-all text-sm flex items-center gap-2 ${
                     selectedVoice?.name === voice.name ? 'bg-purple-500/30 text-white' : 'text-gray-300'
                   }`}
                 >
-                  <span className="mr-2 flex-shrink-0">{icon}</span>
-                  <span className="truncate flex-1">{voice.name}</span>
+                  <span className="flex-shrink-0 w-5 text-center">{icon}</span>
+                  <span className="flex-1 text-left overflow-hidden text-ellipsis whitespace-nowrap">{voice.name}</span>
                 </button>
               );
             })

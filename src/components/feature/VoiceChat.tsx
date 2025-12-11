@@ -129,6 +129,27 @@ export default function VoiceChat({
     setIsListening(false);
   };
 
+  // Convert numbers to Turkish words for better TTS
+  const convertNumberToWords = (num: number): string => {
+    const ones = ['', 'bir', 'iki', 'üç', 'dört', 'beş', 'altı', 'yedi', 'sekiz', 'dokuz'];
+    const tens = ['', 'on', 'yirmi', 'otuz', 'kırk', 'elli', 'altmış', 'yetmiş', 'seksen', 'doksan'];
+    const hundreds = ['', 'yüz', 'iki yüz', 'üç yüz', 'dört yüz', 'beş yüz', 'altı yüz', 'yedi yüz', 'sekiz yüz', 'dokuz yüz'];
+    
+    if (num === 0) return 'sıfır';
+    if (num < 10) return ones[num];
+    if (num < 100) {
+      const ten = Math.floor(num / 10);
+      const one = num % 10;
+      return tens[ten] + (one > 0 ? ' ' + ones[one] : '');
+    }
+    if (num < 1000) {
+      const hundred = Math.floor(num / 100);
+      const remainder = num % 100;
+      return hundreds[hundred] + (remainder > 0 ? ' ' + convertNumberToWords(remainder) : '');
+    }
+    return num.toString(); // Fallback for very large numbers
+  };
+
   const correctBrandNames = (text: string): string => {
     // Fast brand name correction (no backend call needed)
     const brandMap: Record<string, string> = {
