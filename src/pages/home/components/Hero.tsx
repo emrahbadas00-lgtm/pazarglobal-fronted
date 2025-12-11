@@ -136,7 +136,7 @@ export default function Hero() {
 
                 {/* WhatsApp Activation Guide Badge */}
                 <motion.div
-                  className="absolute -top-16 left-1/2 transform -translate-x-1/2 z-20 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-full shadow-2xl"
+                  className="absolute -top-16 left-[45%] transform -translate-x-1/2 z-20 bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-3 rounded-full shadow-2xl"
                   initial={{ opacity: 0, y: -20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: 1 }}
