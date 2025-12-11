@@ -79,8 +79,12 @@ export default function VoiceChat({
         const availableVoices = synthRef.current?.getVoices() || [];
         const turkishVoices = availableVoices.filter(v => v.lang.startsWith('tr'));
         if (turkishVoices.length > 0 && !internalSelectedVoice) {
-          setInternalSelectedVoice(turkishVoices[0]);
-          console.log('🎤 Default voice selected:', turkishVoices[0].name);
+          // Prefer Emel (female) or other quality voices over Tolga (has audio issues)
+          const preferredVoice = turkishVoices.find(v => v.name.includes('Emel')) ||
+                                 turkishVoices.find(v => v.name.toLowerCase().includes('female')) ||
+                                 turkishVoices[turkishVoices.length > 1 ? 1 : 0]; // Skip first if multiple available
+          setInternalSelectedVoice(preferredVoice);
+          console.log('🎤 Default voice selected:', preferredVoice.name);
         }
       };
       loadDefaultVoice();
@@ -167,7 +171,7 @@ export default function VoiceChat({
       const part1 = p1.split('').map(d => digits[parseInt(d)]).join(' ');
       const part2 = p2.split('').map(d => digits[parseInt(d)]).join(' ');
       const part3 = p3.split('').map(d => digits[parseInt(d)]).join(' ');
-      return `${part1}, ${part2}, ${part3}`;
+      return `telefon: ${part1}, ${part2}, ${part3}`;
     });
     
     // Also format phone without +90
@@ -176,7 +180,28 @@ export default function VoiceChat({
       const part1 = p1.split('').map(d => digits[parseInt(d)]).join(' ');
       const part2 = p2.split('').map(d => digits[parseInt(d)]).join(' ');
       const part3 = p3.split('').map(d => digits[parseInt(d)]).join(' ');
-      return `${part1}, ${part2}, ${part3}`;
+      return `telefon: ${part1}, ${part2}, ${part3}`;
+    });
+    
+    // Format other numbers (prices, counts, etc.) - read digit by digit for clarity
+    // Example: "375.000 ₺" → "üç yüz yetmiş beş bin lira"
+    // But for simplicity, just read large numbers as-is, only format 3-6 digit numbers
+    cleanText = cleanText.replace(/\b(\d{3,6})\s*(₺|TL|lira)?\b/gi, (match, num, currency) => {
+      const n = parseInt(num);
+      if (n >= 1000) {
+        // For large numbers, use Turkish number names
+        const thousands = Math.floor(n / 1000);
+        const remainder = n % 1000;
+        let result = '';
+        if (thousands > 0) {
+          result += `${thousands === 1 ? 'bin' : convertNumberToWords(thousands) + ' bin'}`;
+        }
+        if (remainder > 0) {
+          result += ` ${convertNumberToWords(remainder)}`;
+        }
+        return result + (currency ? ' lira' : '');
+      }
+      return convertNumberToWords(n) + (currency ? ' lira' : '');
     });
     
     cleanText = cleanText

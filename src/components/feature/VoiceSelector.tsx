@@ -79,12 +79,12 @@ export default function VoiceSelector({ selectedVoice, onVoiceSelect }: VoiceSel
                     setShowMenu(false);
                     console.log('🎤 Voice selected:', voice.name);
                   }}
-                  className={`w-full text-left px-3 py-2 rounded hover:bg-white/10 transition-all text-sm ${
+                  className={`w-full text-left px-3 py-2 rounded hover:bg-white/10 transition-all text-sm flex items-center ${
                     selectedVoice?.name === voice.name ? 'bg-purple-500/30 text-white' : 'text-gray-300'
                   }`}
                 >
-                  <span className="mr-2">{icon}</span>
-                  <span className="truncate">{voice.name}</span>
+                  <span className="mr-2 flex-shrink-0">{icon}</span>
+                  <span className="truncate flex-1">{voice.name}</span>
                 </button>
               );
             })
