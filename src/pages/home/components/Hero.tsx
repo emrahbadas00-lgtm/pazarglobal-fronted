@@ -148,7 +148,7 @@ export default function Hero() {
                 </motion.div>
 
                 {/* Main Phone Mockup - WhatsApp Chat */}
-                <div className="relative z-10 bg-gradient-to-b from-gray-900 to-gray-800 rounded-[3rem] shadow-2xl p-3 transform hover:scale-105 transition-transform duration-500">
+                <div className="relative z-10 bg-gradient-to-b from-gray-900 to-gray-800 rounded-[3rem] shadow-2xl p-3 transform scale-90 hover:scale-95 transition-transform duration-500">
                   {/* Phone Notch */}
                   <div className="absolute top-0 left-1/2 transform -translate-x-1/2 w-32 h-6 bg-gray-900 rounded-b-3xl z-30" />
                   
