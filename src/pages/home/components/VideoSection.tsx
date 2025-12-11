@@ -70,7 +70,7 @@ export default function VideoSection() {
                 {/* Animated Background */}
                 <div className="absolute inset-0 opacity-20">
                   <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-white rounded-full blur-3xl animate-float" />
-                  <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-white rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
+                  <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-white rounded-full blur-3xl animate-float animation-delay-2s" />
                 </div>
 
                 {/* Content */}
@@ -185,7 +185,7 @@ export default function VideoSection() {
                     {/* Animated Background */}
                     <div className="absolute inset-0 opacity-20">
                       <div className="absolute top-1/4 left-1/4 w-64 h-64 bg-white rounded-full blur-3xl animate-float" />
-                      <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-white rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
+                      <div className="absolute bottom-1/4 right-1/4 w-64 h-64 bg-white rounded-full blur-3xl animate-float animation-delay-2s" />
                     </div>
 
                     {/* Content */}

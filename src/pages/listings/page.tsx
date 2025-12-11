@@ -181,6 +181,7 @@ export default function ListingsPage() {
                 value={sortBy}
                 onChange={(e) => setSortBy(e.target.value)}
                 className="px-4 py-2.5 bg-white rounded-full shadow-md text-sm font-medium cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary-500"
+                aria-label="İlanları sırala"
               >
                 <option value="newest">En Yeni</option>
                 <option value="oldest">En Eski</option>
@@ -195,6 +196,7 @@ export default function ListingsPage() {
                   onClick={() => setViewMode('grid')}
                   className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer ${viewMode === 'grid' ? 'bg-gradient-primary text-white' : 'text-gray-600 hover:text-gray-900'
                     }`}
+                  aria-label="Izgara görünümü"
                 >
                   <i className="ri-grid-line text-lg" />
                 </button>
@@ -202,6 +204,7 @@ export default function ListingsPage() {
                   onClick={() => setViewMode('list')}
                   className={`w-10 h-10 rounded-full flex items-center justify-center transition-all cursor-pointer ${viewMode === 'list' ? 'bg-gradient-primary text-white' : 'text-gray-600 hover:text-gray-900'
                     }`}
+                  aria-label="Liste görünümü"
                 >
                   <i className="ri-list-check text-lg" />
                 </button>

@@ -829,6 +829,7 @@ export default function ChatBox() {
                 <button
                   onClick={() => setError(null)}
                   className="text-red-500 hover:text-red-700 cursor-pointer"
+                  aria-label="Hatayı kapat"
                 >
                   <i className="ri-close-line" />
                 </button>
@@ -870,8 +871,8 @@ export default function ChatBox() {
                   <div className="bg-white rounded-2xl px-4 py-3 shadow-md">
                     <div className="flex space-x-2">
                       <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:200ms]" />
+                      <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:400ms]" />
                     </div>
                   </div>
                 </motion.div>
@@ -929,11 +930,13 @@ export default function ChatBox() {
                   onChange={handleFileChange}
                   accept="image/*"
                   className="hidden"
+                  aria-label="Fotoğraf seç"
                 />
                 <button
                   onClick={handleFileUpload}
                   disabled={isTyping}
                   className="w-10 h-10 flex items-center justify-center text-gray-600 hover:bg-gray-100 rounded-full transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Fotoğraf yükle"
                 >
                   <i className="ri-attachment-line text-xl" />
                 </button>

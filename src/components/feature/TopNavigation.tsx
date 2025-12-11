@@ -56,10 +56,9 @@ export default function TopNavigation() {
               className="w-[80px] h-[80px]"
             />
             <span
-              className={`text-3xl ${
+              className={`text-3xl [font-family:'Pacifico,_cursive'] ${
                 isScrolled || !isHomePage ? 'text-gray-900' : 'text-white'
               }`}
-              style={{ fontFamily: 'Pacifico, cursive' }}
             >
               PazarGlobal
             </span>
