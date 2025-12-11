@@ -57,9 +57,9 @@ export default function VoiceSelector({ selectedVoice, onVoiceSelect }: VoiceSel
         <motion.div
           initial={{ opacity: 0, scale: 0.95, y: -10 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          className="absolute top-12 right-0 bg-gray-800 rounded-lg shadow-xl p-2 min-w-[250px] max-h-[300px] overflow-y-auto z-[9999]"
+          className="absolute top-12 right-0 bg-gray-800 rounded-lg shadow-xl p-3 w-[360px] max-h-[300px] overflow-y-auto overflow-x-hidden z-[9999]"
         >
-          <div className="text-xs text-gray-400 px-2 py-1 font-semibold border-b border-gray-700 mb-1">
+          <div className="text-xs text-gray-400 px-2 py-1 font-semibold border-b border-gray-700 mb-2">
             Ses Seçin: {voices.length > 0 ? `(${voices.length} ses)` : 'Yükleniyor...'}
           </div>
           {voices.length === 0 ? (
@@ -82,12 +82,12 @@ export default function VoiceSelector({ selectedVoice, onVoiceSelect }: VoiceSel
                     setShowMenu(false);
                     console.log('🎤 Voice selected:', voice.name);
                   }}
-                  className={`w-full px-3 py-2 rounded hover:bg-white/10 transition-all text-sm flex items-center gap-2 ${
-                    selectedVoice?.name === voice.name ? 'bg-purple-500/30 text-white' : 'text-gray-300'
+                  className={`w-full px-3 py-2.5 rounded-md hover:bg-white/10 transition-all text-sm flex items-center ${
+                    selectedVoice?.name === voice.name ? 'bg-purple-500/30 text-white font-medium' : 'text-gray-300'
                   }`}
                 >
-                  <span className="flex-shrink-0 w-5 text-center">{icon}</span>
-                  <span className="flex-1 text-left overflow-hidden text-ellipsis whitespace-nowrap">{voice.name}</span>
+                  <span className="mr-3 text-base">{icon}</span>
+                  <span className="flex-1 text-left leading-tight break-words">{voice.name}</span>
                 </button>
               );
             })
