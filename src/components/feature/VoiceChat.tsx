@@ -168,61 +168,40 @@ export default function VoiceChat({
   const speak = useCallback((text: string) => {
     if (!synthRef.current || !isEnabled) return;
 
-    // Remove emojis before speaking
-    // Regex matches all emoji characters and common emoji patterns
+    // Quick emoji removal (optimized regex)
     const cleanText = text
-      .replace(/[\u{1F600}-\u{1F64F}]/gu, '') // Emoticons
-      .replace(/[\u{1F300}-\u{1F5FF}]/gu, '') // Misc Symbols and Pictographs
-      .replace(/[\u{1F680}-\u{1F6FF}]/gu, '') // Transport and Map
-      .replace(/[\u{1F1E0}-\u{1F1FF}]/gu, '') // Flags
-      .replace(/[\u{2600}-\u{26FF}]/gu, '')   // Misc symbols
-      .replace(/[\u{2700}-\u{27BF}]/gu, '')   // Dingbats
-      .replace(/[\u{1F900}-\u{1F9FF}]/gu, '') // Supplemental Symbols and Pictographs
-      .replace(/[\u{1FA00}-\u{1FA6F}]/gu, '') // Chess Symbols
-      .replace(/[\u{1FA70}-\u{1FAFF}]/gu, '') // Symbols and Pictographs Extended-A
+      .replace(/[\u{1F000}-\u{1FFFF}]/gu, '') // All emojis in one pass
+      .replace(/[\u{2600}-\u{27BF}]/gu, '')   // Misc symbols
       .replace(/[\u{FE0F}\u{200D}]/gu, '')    // Variation Selectors
-      .replace(/\s+/g, ' ')                    // Clean up multiple spaces
+      .replace(/\s+/g, ' ')                    // Clean up spaces
       .trim();
 
-    if (!cleanText) {
-      console.log('🔊 No text to speak after emoji removal');
-      return;
-    }
+    if (!cleanText) return;
 
-    console.log('🔊 Original:', text);
-    console.log('🔊 Clean text:', cleanText);
-
-    // Cancel any ongoing speech
+    // Cancel any ongoing speech immediately
     synthRef.current.cancel();
 
     const utterance = new SpeechSynthesisUtterance(cleanText);
     utterance.lang = 'tr-TR';
-    utterance.rate = 1.0;
+    utterance.rate = 1.1;  // Slightly faster for responsiveness
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
     
-    // Apply selected voice
+    // Apply selected voice (pre-loaded)
     if (selectedVoice) {
       utterance.voice = selectedVoice;
-      console.log('🎤 Using voice:', selectedVoice.name);
     }
 
-    utterance.onstart = () => {
-      console.log('🔊 Speech started');
-      setIsSpeaking(true);
-    };
-    utterance.onend = () => {
-      console.log('🔊 Speech ended');
-      setIsSpeaking(false);
-    };
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
     utterance.onerror = (e) => {
       console.error('🔊 Speech error:', e);
       setIsSpeaking(false);
-      setError('Ses çalma hatası');
     };
 
+    // Speak immediately without delay
     synthRef.current.speak(utterance);
-  }, [isEnabled]);
+  }, [isEnabled, selectedVoice]);
 
   const stopSpeaking = () => {
     if (synthRef.current) {
@@ -263,7 +242,7 @@ export default function VoiceChat({
             <motion.div
               initial={{ opacity: 0, y: -10 }}
               animate={{ opacity: 1, y: 0 }}
-              className="absolute bottom-12 left-0 bg-gray-800 rounded-lg shadow-xl p-2 min-w-[200px] max-h-[300px] overflow-y-auto z-50"
+              className="absolute bottom-12 left-0 bg-gray-800 rounded-lg shadow-xl p-2 min-w-[200px] max-h-[300px] overflow-y-auto z-[9999]"
             >
               <div className="text-xs text-gray-400 px-2 py-1 font-semibold">Ses Seçin:</div>
               {voices.map((voice, index) => {

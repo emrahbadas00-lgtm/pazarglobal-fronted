@@ -243,6 +243,13 @@ export default function ChatBox() {
           });
 
           setIsTyping(false);
+
+          // Immediately speak response in voice mode (no delay)
+          if (voiceMode && (window as any).speakResponse && cleanContent) {
+            console.log('🔊 Speaking response immediately after streaming...');
+            setTimeout(() => (window as any).speakResponse(cleanContent), 100);
+          }
+
           break;
         }
 
@@ -504,30 +511,7 @@ export default function ChatBox() {
     sendMessageToAgent(text);
   };
 
-  const handleAgentResponse = (responseText: string) => {
-    console.log('🎤 Voice mode:', voiceMode);
-    console.log('🎤 speakResponse available:', !!(window as any).speakResponse);
-    console.log('🎤 Response text:', responseText);
-    
-    // Speak agent response using VoiceChat component
-    if (voiceMode && (window as any).speakResponse) {
-      console.log('✅ Calling speakResponse...');
-      (window as any).speakResponse(responseText);
-    } else {
-      console.log('❌ Cannot speak:', { voiceMode, hasFunction: !!(window as any).speakResponse });
-    }
-  };
-
-  // Update when new AI message arrives in voice mode
-  useEffect(() => {
-    if (messages.length > 0) {
-      const lastMessage = messages[messages.length - 1];
-      if (lastMessage.type === 'ai' && voiceMode) {
-        console.log('📨 New AI message in voice mode, triggering speech...');
-        handleAgentResponse(lastMessage.content);
-      }
-    }
-  }, [messages, voiceMode]);
+  // Removed: Speech is now triggered immediately in sendMessageToAgent
 
   const toggleRecording = () => {
     setIsRecording(!isRecording);
