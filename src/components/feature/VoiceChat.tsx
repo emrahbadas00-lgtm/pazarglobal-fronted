@@ -184,6 +184,29 @@ export default function VoiceChat({
 
     // Clean text for voice (remove emojis, URLs, and technical content)
     let cleanText = text;
+
+    // Normalize cases where digits are attached to words so TTS can read them.
+    // Examples: "iPhone13" -> "iPhone 13", "ilan1" -> "ilan 1"
+    // Keep it language-agnostic (works for TR + EN brand names).
+    cleanText = cleanText
+      .replace(/([A-Za-zÇĞİÖŞÜçğıöşüİı]+)(\d+)/g, '$1 $2')
+      .replace(/(\d+)([A-Za-zÇĞİÖŞÜçğıöşüİı]+)/g, '$1 $2');
+
+    // Normalize "1 nolu" / "1'nolu" forms into a speak-friendly phrase.
+    // Example: "1 nolu ilan" -> "bir numaralı ilan"
+    cleanText = cleanText.replace(/\b(\d{1,3})\s*'?nolu\b/gi, (_match, num) => {
+      const n = parseInt(num, 10);
+      if (Number.isFinite(n)) return `${convertNumberToWords(n)} numaralı`;
+      return `${num} numaralı`;
+    });
+
+    // Convert short model/ordinal numbers after a word for better Turkish TTS.
+    // Example: "iPhone 12" -> "iPhone on iki"
+    cleanText = cleanText.replace(/([A-Za-zÇĞİÖŞÜçğıöşüİı]{2,})\s+(\d{1,2})\b/g, (_match, word, num) => {
+      const n = parseInt(num, 10);
+      if (Number.isFinite(n)) return `${word} ${convertNumberToWords(n)}`;
+      return `${word} ${num}`;
+    });
     
     // Format Turkish phone numbers for voice (multiple formats)
     // +905412879705 → "sıfır beş dört bir, iki sekiz yedi, doksan yedi sıfır beş"
@@ -237,7 +260,7 @@ export default function VoiceChat({
       .replace(/[\u{2600}-\u{27BF}]/gu, '')
       .replace(/[\u{FE0F}\u{200D}]/gu, '')
       // Remove number emojis (1️⃣, 2️⃣, etc.)
-      .replace(/[\u{0030}-\u{0039}\u{FE0F}\u{20E3}]/gu, '')
+      .replace(/\d\u{FE0F}?\u{20E3}/gu, '')
       // Simplify repeated listing titles in cards
       .replace(/^"([^"]+)"\s*$/gm, '')
       // Clean up multiple spaces and newlines
