@@ -22,8 +22,8 @@ export default function Hero() {
       {/* Animated Background */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-300/30 rounded-full blur-3xl animate-float" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-300/30 rounded-full blur-3xl animate-float" style={{ animationDelay: '2s' }} />
-        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-blue-300/20 rounded-full blur-3xl animate-float" style={{ animationDelay: '4s' }} />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-300/30 rounded-full blur-3xl animate-float animation-delay-2s" />
+        <div className="absolute top-1/2 left-1/2 w-96 h-96 bg-blue-300/20 rounded-full blur-3xl animate-float animation-delay-4s" />
       </div>
 
       {/* Dark Overlay for Better Text Contrast */}
@@ -156,7 +156,7 @@ export default function Hero() {
                   <div className="bg-white rounded-[2.5rem] overflow-hidden">
                     {/* WhatsApp Header */}
                     <div className="bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-3 flex items-center space-x-3">
-                      <button className="cursor-pointer">
+                      <button className="cursor-pointer" aria-label="Geri" title="Geri">
                         <i className="ri-arrow-left-line text-white text-xl" />
                       </button>
                       <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
@@ -166,7 +166,7 @@ export default function Hero() {
                         <div className="text-white font-semibold text-sm">Twilio WhatsApp</div>
                         <div className="text-white/80 text-xs">PazarGlobal AI</div>
                       </div>
-                      <button className="cursor-pointer">
+                      <button className="cursor-pointer" aria-label="Daha fazla" title="Daha fazla">
                         <i className="ri-more-2-fill text-white text-xl" />
                       </button>
                     </div>
@@ -277,9 +277,9 @@ export default function Hero() {
                       >
                         <div className="bg-white rounded-lg px-4 py-2 shadow-sm">
                           <div className="flex space-x-1">
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0s' }} />
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.2s' }} />
-                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" style={{ animationDelay: '0.4s' }} />
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce" />
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce animation-delay-200" />
+                            <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce animation-delay-400" />
                           </div>
                         </div>
                       </motion.div>
@@ -287,7 +287,7 @@ export default function Hero() {
 
                     {/* WhatsApp Input */}
                     <div className="bg-gray-100 px-3 py-2 flex items-center space-x-2">
-                      <button className="cursor-pointer">
+                      <button className="cursor-pointer" aria-label="Emoji" title="Emoji">
                         <i className="ri-emotion-happy-line text-gray-500 text-xl" />
                       </button>
                       <div className="flex-1 bg-white rounded-full px-4 py-2">
@@ -298,10 +298,10 @@ export default function Hero() {
                           disabled
                         />
                       </div>
-                      <button className="cursor-pointer">
+                      <button className="cursor-pointer" aria-label="Ekle" title="Ekle">
                         <i className="ri-attachment-line text-gray-500 text-xl" />
                       </button>
-                      <button className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center cursor-pointer">
+                      <button className="w-10 h-10 bg-green-600 rounded-full flex items-center justify-center cursor-pointer" aria-label="Ses kaydı" title="Ses kaydı">
                         <i className="ri-mic-fill text-white text-lg" />
                       </button>
                     </div>

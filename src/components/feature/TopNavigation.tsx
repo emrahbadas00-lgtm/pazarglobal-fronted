@@ -50,17 +50,15 @@ export default function TopNavigation() {
             onClick={() => navigate('/')}
             className="flex items-center gap-3 cursor-pointer"
           >
-            <img 
-              src="/logo.svg" 
-              alt="PazarGlobal Logo" 
-              className="w-[80px] h-[80px]"
+            <img
+              src="/logo-readdy.png?v=1"
+              alt="PazarGlobal"
+              title="PazarGlobal"
+              className="h-8 w-auto"
             />
-            <span
-              className={`text-3xl [font-family:'Pacifico,_cursive'] ${
-                isScrolled || !isHomePage ? 'text-gray-900' : 'text-white'
-              }`}
-            >
-              PazarGlobal
+            <span className="text-xl sm:text-2xl font-display font-bold leading-none">
+              <span className="text-blue-800">Pazar</span>
+              <span className="text-sky-400">Global</span>
             </span>
           </div>
 

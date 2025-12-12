@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 export default function VideoSection() {
   const [isPlaying, setIsPlaying] = useState(false);
-  const [videoUrl] = useState('https://www.youtube.com/embed/Iu0a3H8nAT0?autoplay=1&rel=0');
+  const [videoUrl] = useState('https://www.youtube.com/embed/uNciyRCARCY?autoplay=1&rel=0');
 
   // Video URL'i buraya eklenecek (YouTube, Vimeo, vb.)
   const embedUrl = videoUrl || '';
@@ -82,7 +82,7 @@ export default function VideoSection() {
                     transition={{ duration: 2, repeat: Infinity }}
                   >
                     <img 
-                      src="/logo.svg" 
+                      src="/logo.png?v=2" 
                       alt="PazarGlobal Logo" 
                       className="w-32 h-32 mx-auto drop-shadow-2xl"
                     />
@@ -197,7 +197,7 @@ export default function VideoSection() {
                         transition={{ duration: 2, repeat: Infinity }}
                       >
                         <img 
-                          src="/logo.svg" 
+                          src="/logo.png?v=2" 
                           alt="PazarGlobal Logo" 
                           className="w-32 h-32 mx-auto drop-shadow-2xl"
                         />

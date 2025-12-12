@@ -1,5 +1,6 @@
 import { motion } from 'framer-motion';
 import { useState } from 'react';
+import TopNavigation from '../../components/feature/TopNavigation';
 
 interface Review {
   id: number;
@@ -145,8 +146,10 @@ export default function ReviewsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 via-orange-50 to-yellow-50">
+      <TopNavigation />
+      
       {/* Header */}
-      <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-yellow-600 text-white py-20">
+      <div className="bg-gradient-to-r from-amber-600 via-orange-600 to-yellow-600 text-white py-20 mt-20">
         <div className="max-w-7xl mx-auto px-6">
           <motion.div
             initial={{ opacity: 0, y: 30 }}

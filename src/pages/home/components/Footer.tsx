@@ -14,7 +14,7 @@ export default function Footer() {
             <div className="flex items-center space-x-3 mb-6">
               <div className="w-12 h-12 flex items-center justify-center">
                 <img 
-                  src="/logo.svg" 
+                  src="/logo.png?v=2" 
                   alt="PazarGlobal Logo" 
                   className="w-full h-full object-contain"
                 />
@@ -27,16 +27,16 @@ export default function Footer() {
               AI ile saniyeler içinde ilan ver. Türkiye'nin en akıllı ilan platformu.
             </p>
             <div className="flex items-center space-x-4">
-              <a href="#" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer">
+              <a href="#" aria-label="Facebook" title="Facebook" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer">
                 <i className="ri-facebook-fill text-lg" />
               </a>
-              <a href="#" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer">
+              <a href="#" aria-label="X" title="X" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer">
                 <i className="ri-twitter-x-fill text-lg" />
               </a>
-              <a href="#" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer">
+              <a href="#" aria-label="Instagram" title="Instagram" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer">
                 <i className="ri-instagram-fill text-lg" />
               </a>
-              <a href="#" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer">
+              <a href="#" aria-label="LinkedIn" title="LinkedIn" className="w-10 h-10 bg-white/10 rounded-full flex items-center justify-center hover:bg-white/20 transition-colors cursor-pointer">
                 <i className="ri-linkedin-fill text-lg" />
               </a>
             </div>
