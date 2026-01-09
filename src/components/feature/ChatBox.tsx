@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { createClient } from '@supabase/supabase-js';
@@ -6,7 +6,7 @@ import { useAuthStore } from '../../stores/authStore';
 import VoiceChat from './VoiceChat';
 import VoiceSelector from './VoiceSelector';
 import ReactMarkdown from 'react-markdown';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { tr } from 'date-fns/locale';
 import { Swiper, SwiperSlide } from 'swiper/react';
 import { Pagination, Navigation } from 'swiper/modules';
@@ -14,6 +14,7 @@ import 'swiper/css';
 import 'swiper/css/pagination';
 import 'swiper/css/navigation';
 import './ChatBox.css';
+import { conditionBadgeClass, toCanonicalCondition } from '../../lib/condition';
 
 type Message = {
   id: string;
@@ -30,7 +31,10 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 const PUBLIC_BUCKET = 'product-images';
-const SEARCH_CACHE_REGEX = /\[SEARCH_CACHE\]\s*(\{.*\}|\[.*\])/s;
+const AGENT_API_BASE =
+  (import.meta.env as any).VITE_AGENT_API_BASE?.trim() ||
+  (import.meta.env as any).NEXT_PUBLIC_AGENT_API_BASE?.trim() ||
+  '';
 
 // Generate or retrieve unique user ID
 const getUserId = (): string => {
@@ -44,27 +48,30 @@ const getUserId = (): string => {
 
 // Parse listing data from message
 const parseListings = (content: string): { cleanContent: string; listings: any[] } => {
-  const match = content.match(SEARCH_CACHE_REGEX);
-  if (!match) {
-    return { cleanContent: content.trim(), listings: [] };
-  }
-
-  const block = match[1].trim();
-  let listings: any[] = [];
-
-  try {
-    const parsed = JSON.parse(block);
-    if (Array.isArray(parsed)) {
-      listings = parsed;
-    } else if (parsed && Array.isArray(parsed.results)) {
-      listings = parsed.results;
+  const searchCacheMatch = content.match(/\[SEARCH_CACHE\]({.*})/s);
+  if (searchCacheMatch) {
+    try {
+      const cacheData = JSON.parse(searchCacheMatch[1]);
+      const cleanContent = content.replace(/\[SEARCH_CACHE\].*$/s, '').trim();
+      return { cleanContent, listings: cacheData.results || [] };
+    } catch (e) {
+      console.error('Failed to parse listings:', e);
     }
-  } catch (e) {
-    console.error('Failed to parse listings:', e);
   }
+  return { cleanContent: content, listings: [] };
+};
 
-  const cleanContent = content.replace(match[0], '').trim();
-  return { cleanContent, listings };
+// Deduplicate path list (keeps order of first occurrence)
+const dedupePaths = (paths: string[]): string[] => {
+  const seen = new Set<string>();
+  const result: string[] = [];
+  for (const p of paths) {
+    if (p && !seen.has(p)) {
+      seen.add(p);
+      result.push(p);
+    }
+  }
+  return result;
 };
 
 // Resim sıkıştırma fonksiyonu
@@ -97,7 +104,7 @@ const compressImage = async (file: File, maxSizeMB: number = 0.9): Promise<File>
         ctx?.drawImage(img, 0, 0, width, height);
 
         // Kalite ayarı ile sıkıştırma
-        let quality = 0.9;
+        const quality = 0.9;
         const maxSizeBytes = maxSizeMB * 1024 * 1024;
 
         const tryCompress = (q: number) => {
@@ -132,9 +139,56 @@ const compressImage = async (file: File, maxSizeMB: number = 0.9): Promise<File>
   });
 };
 
+// Supabase'e resim yükleme fonksiyonu
+const uploadImageToSupabase = async (file: File, userId: string): Promise<{ storagePath: string; publicUrl: string }> => {
+  const fileExt = file.name.split('.').pop() || 'jpg';
+  const fileName = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}.${fileExt}`;
+  
+  // Kullanıcı telefon numarasını almaya çalış
+  let userPhone = userId;
+  try {
+    const { data: profileData } = await supabase
+      .from('profiles')
+      .select('phone')
+      .eq('id', userId)
+      .single();
+    
+    if (profileData?.phone) {
+      userPhone = profileData.phone.replace(/\D/g, '');
+    }
+  } catch (err) {
+    console.error('Telefon numarası alınamadı, userId kullanılacak:', err);
+  }
+
+  // Geçici listing ID (gerçek ID agent tarafından oluşturulacak)
+  const tempListingId = `webchat_${Date.now()}`;
+  
+  // Path: userPhone/listing_id/image.jpg
+  const storagePath = `${userPhone}/${tempListingId}/${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from(PUBLIC_BUCKET)
+    .upload(storagePath, file);
+
+  if (uploadError) {
+    console.error('Supabase upload error:', uploadError);
+    throw new Error(`Resim yüklenemedi: ${uploadError.message}`);
+  }
+
+  // Public URL oluştur
+  const { data: publicUrlData } = supabase.storage
+    .from(PUBLIC_BUCKET)
+    .getPublicUrl(storagePath);
+
+  return {
+    storagePath,
+    publicUrl: publicUrlData.publicUrl
+  };
+};
+
 export default function ChatBox() {
   const navigate = useNavigate();
-  const { user, customUser, profile, checkAuth } = useAuthStore();
+  const { user, customUser } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<Tab>('listing');
   const [messages, setMessages] = useState<Message[]>([
@@ -146,7 +200,7 @@ export default function ChatBox() {
     },
   ]);
   const [inputValue, setInputValue] = useState('');
-  const [isRecording, setIsRecording] = useState(false);
+  const [isRecording] = useState(false);
   const [isTyping, setIsTyping] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -159,55 +213,176 @@ export default function ChatBox() {
   const currentMessageRef = useRef<string>('');
   const conversationHistory = useRef<Array<{ role: string; content: string }>>([]);
   const pendingMediaPathsRef = useRef<string[]>([]);
+  const pendingMediaPublicMapRef = useRef<Record<string, string>>({});
 
-  const AGENT_BACKEND_URL = 'https://pazarglobal-agent-backend-production-4ec8.up.railway.app';
-
-  const dedupePaths = (paths: string[]) => {
-    const seen = new Set<string>();
-    const out: string[] = [];
-    for (const p of paths) {
-      const sp = (p || '').toString().trim();
-      if (!sp) continue;
-      if (seen.has(sp)) continue;
-      seen.add(sp);
-      out.push(sp);
-    }
-    return out;
+  const clearPendingMedia = () => {
+    pendingMediaPathsRef.current = [];
+    pendingMediaPublicMapRef.current = {};
   };
 
-  const resolveUserIdPath = (id: string) => id?.replace(/[^a-zA-Z0-9_-]/g, '') || 'web-user';
-
-  const uploadImageToSupabase = async (file: File, resolvedUserId: string) => {
-    const sanitizedUser = resolveUserIdPath(resolvedUserId);
-    const filename = `${crypto.randomUUID?.() || Date.now()}-${file.name.replace(/\s+/g, '-')}`;
-    const storagePath = `${sanitizedUser}/${filename}`;
-    const { error } = await supabase.storage.from(PUBLIC_BUCKET).upload(storagePath, file, {
-      contentType: file.type,
-      upsert: false,
+  const addPendingMediaItems = (items: Array<{ path: string; publicUrl?: string }>) => {
+    if (!items || items.length === 0) return;
+    const mapSnapshot = { ...pendingMediaPublicMapRef.current };
+    const incomingPaths: string[] = [];
+    items.forEach(({ path, publicUrl }) => {
+      if (!path) return;
+      incomingPaths.push(path);
+      if (publicUrl) {
+        mapSnapshot[path] = publicUrl;
+      } else if (!mapSnapshot[path]) {
+        mapSnapshot[path] = path;
+      }
     });
-    if (error) {
-      throw new Error(error.message);
+    const merged = dedupePaths([...pendingMediaPathsRef.current, ...incomingPaths]);
+    const filteredMap: Record<string, string> = {};
+    merged.forEach((path) => {
+      filteredMap[path] = mapSnapshot[path] || path;
+    });
+    pendingMediaPathsRef.current = merged;
+    pendingMediaPublicMapRef.current = filteredMap;
+  };
+
+  const getPublicUrlsForPaths = (paths: string[]) => {
+    if (!paths || paths.length === 0) return [];
+    return paths.map((path) => pendingMediaPublicMapRef.current[path] || path);
+  };
+
+  const commitAssistantResponse = (rawContent: string, aiMessageId?: string, forcedListings?: any[]) => {
+    const { cleanContent, listings } = parseListings(rawContent || '');
+    const resolvedListings = forcedListings && forcedListings.length > 0 ? forcedListings : listings;
+
+    if (!cleanContent && (!resolvedListings || resolvedListings.length === 0)) {
+      return;
     }
-    const publicUrl = `${supabaseUrl}/storage/v1/object/public/${PUBLIC_BUCKET}/${storagePath}`;
-    return { storagePath, publicUrl };
+
+    if (cleanContent) {
+      conversationHistory.current.push({
+        role: 'assistant',
+        content: cleanContent,
+      });
+
+      const lc = cleanContent.toLowerCase();
+      if (lc.includes('ilan yayınlandı') || lc.includes('✅ ilan yayınlandı')) {
+        clearPendingMedia();
+      }
+      if (lc.includes('iptal edildi') || lc.startsWith('iptal') || lc.includes('işlemi iptal')) {
+        clearPendingMedia();
+      }
+    }
+
+    setMessages((prev) => {
+      const updated = [...prev];
+      if (aiMessageId) {
+        const existingIndex = updated.findIndex((m) => m.id === aiMessageId);
+        if (existingIndex >= 0) {
+          updated[existingIndex] = {
+            ...updated[existingIndex],
+            content: cleanContent,
+            listings: resolvedListings && resolvedListings.length > 0 ? resolvedListings : undefined,
+          };
+          return updated;
+        }
+      }
+
+      return [
+        ...updated,
+        {
+          id: aiMessageId || `${Date.now()}`,
+          type: 'ai',
+          content: cleanContent,
+          timestamp: new Date(),
+          listings: resolvedListings && resolvedListings.length > 0 ? resolvedListings : undefined,
+        },
+      ];
+    });
+
+    if (voiceMode && (window as any).speakResponse && cleanContent) {
+      setTimeout(() => (window as any).speakResponse(cleanContent), 150);
+    }
   };
 
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  // Direct agent API sender
+  const sendMessageToAgentDirect = async (
+    message: string,
+    mediaPayload: { storagePaths: string[]; publicUrls: string[] },
+    resolvedUserId: string
+  ) => {
+    if (!AGENT_API_BASE) {
+      throw new Error('VITE_AGENT_API_BASE tanımlı değil. Agent API adresini .env dosyanıza ekleyin.');
+    }
+    const endpoint = `${AGENT_API_BASE.replace(/\/$/, '')}/agent/run`;
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        user_id: resolvedUserId,
+        message,
+        conversation_history: conversationHistory.current,
+        media_paths: mediaPayload.storagePaths.length > 0 ? mediaPayload.storagePaths : undefined,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text().catch(() => '<failed to read response body>');
+      throw new Error(`Agent hatası (${response.status}): ${errorText || response.statusText || 'Bilinmeyen hata'}`);
+    }
+
+    const json = await response.json();
+    const assistantText = json.message || json.response || '';
+    const listings = json.data?.listings || json.listings;
+    if (assistantText) {
+      commitAssistantResponse(assistantText, undefined, listings);
+    }
+    if (mediaPayload.publicUrls.length > 0) {
+      clearPendingMedia();
+    }
+    return true;
   };
 
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+  const requestMediaAnalysis = async (storagePaths: string[], resolvedUserId: string) => {
+    if (!AGENT_API_BASE || storagePaths.length === 0) {
+      return false;
+    }
+    const publicUrls = getPublicUrlsForPaths(storagePaths);
+    if (publicUrls.length === 0) {
+      return false;
+    }
+    const endpoint = `${AGENT_API_BASE.replace(/\/$/, '')}/webchat/media/analyze`;
+    try {
+      const response = await fetch(endpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          session_id: resolvedUserId,
+          user_id: resolvedUserId,
+          media_urls: publicUrls,
+        }),
+      });
 
-  // Try to hydrate auth context so agent backend can map the visitor to a real account
-  useEffect(() => {
-    checkAuth();
-  }, [checkAuth]);
+      if (!response.ok) {
+        const errorText = await response.text().catch(() => '<failed to read response body>');
+        throw new Error(`Media analysis hatası (${response.status}): ${errorText || response.statusText || 'Bilinmeyen hata'}`);
+      }
 
-  const handleListingClick = (listingId: string) => {
-    navigate(`/listing/${listingId}`);
-    setIsOpen(false);
+      const json = await response.json();
+      const assistantText = json.message || json.response || '';
+      if (assistantText) {
+        commitAssistantResponse(assistantText, undefined, json.data?.listings);
+      }
+
+      // The backend /webchat/media/analyze endpoint already persists these media URLs into
+      // the draft/session. Clear pending media so we don't resend the same URLs on the next
+      // text message (which causes duplicated image counters / flow confusion).
+      clearPendingMedia();
+      return true;
+    } catch (err) {
+      console.error('Media analysis request failed:', err);
+      return false;
+    }
   };
 
   const sendMessageToAgent = async (message: string, options?: { mediaPaths?: string[]; mediaType?: string }) => {
@@ -215,228 +390,44 @@ export default function ChatBox() {
     setIsConnecting(true);
     setError(null);
     currentMessageRef.current = '';
-
-    const sessionToken = localStorage.getItem('session_token');
     const storedUserId = localStorage.getItem('user_id');
     const resolvedUserId = customUser?.id || user?.id || storedUserId || getUserId();
-    const userContext = {
-      user_id: resolvedUserId,
-      session_token: sessionToken || undefined,
-      email: user?.email || customUser?.email || undefined,
-      phone: customUser?.phone || undefined,
-      name: profile?.full_name || customUser?.full_name || user?.user_metadata?.full_name || undefined,
-      source: 'web-chat',
-    };
 
-    // Add user message to conversation history
     conversationHistory.current.push({
       role: 'user',
-      content: message
+      content: message,
     });
 
+    const mediaStoragePaths = dedupePaths(options?.mediaPaths || []);
+    const mediaPublicUrls = getPublicUrlsForPaths(mediaStoragePaths);
     try {
-      // Only send media_paths on the upload message itself.
-      // For subsequent messages, we persist safe media via a hidden [SYSTEM_MEDIA_NOTE] in conversationHistory.
-      const media_paths = dedupePaths(options?.mediaPaths || []);
-
-      // DEBUG: Log what we're sending to backend
-      if (media_paths.length > 0) {
-        console.log('🖼️  Sending media_paths to backend:', media_paths);
-        console.log('🖼️  Sending media_type to backend:', options?.mediaType);
-      }
-      
-      const response = await fetch(`${AGENT_BACKEND_URL}/web-chat`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message,
-          user_id: resolvedUserId,
-          conversation_history: conversationHistory.current,
-          user_context: userContext,
-          media_paths: media_paths.length > 0 ? media_paths : undefined,
-          media_type: options?.mediaType,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('Backend error response:', errorText);
-        throw new Error(`Backend hatası (${response.status}): ${errorText || 'Bilinmeyen hata'}`);
-      }
-
+      await sendMessageToAgentDirect(
+        message,
+        { storagePaths: mediaStoragePaths, publicUrls: mediaPublicUrls },
+        resolvedUserId
+      );
+      setIsTyping(false);
       setIsConnecting(false);
-
-      // Check if response is SSE
-      const contentType = response.headers.get('content-type');
-      if (!contentType?.includes('text/event-stream')) {
-        console.error('Invalid content type:', contentType);
-        throw new Error('Backend yanlış format döndü. SSE bekleniyor.');
-      }
-
-      // Read SSE stream
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) {
-        throw new Error('Response body okunamıyor');
-      }
-
-      let aiMessageId = Date.now().toString();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        
-        if (done) {
-          // Parse listings from final message
-          const { cleanContent, listings } = parseListings(currentMessageRef.current);
-          
-          // Add AI response to conversation history
-          if (cleanContent) {
-            conversationHistory.current.push({
-              role: 'assistant',
-              content: cleanContent
-            });
-          }
-
-          // Heuristic: after publish/cancel flows, clear pending images
-          if (cleanContent) {
-            const lc = cleanContent.toLowerCase();
-            if (lc.includes('ilan yayınlandı') || lc.includes('✅ ilan yayınlandı')) {
-              pendingMediaPathsRef.current = [];
-            }
-            if (lc.includes('iptal edildi') || lc.startsWith('iptal') || lc.includes('işlemi iptal')) {
-              pendingMediaPathsRef.current = [];
-            }
-          }
-
-          // Update message with parsed data
-          setMessages((prev) => {
-            const updated = [...prev];
-            const index = updated.findIndex(m => m.id === aiMessageId);
-            if (index >= 0) {
-              updated[index] = {
-                ...updated[index],
-                content: cleanContent,
-                listings: listings.length > 0 ? listings : undefined,
-              };
-            }
-            return updated;
-          });
-
-          setIsTyping(false);
-
-          // Immediately speak response in voice mode (no delay)
-          if (voiceMode && (window as any).speakResponse && cleanContent) {
-            console.log('🔊 Speaking response immediately after streaming...');
-            setTimeout(() => (window as any).speakResponse(cleanContent), 100);
-          }
-
-          break;
-        }
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || '';
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              
-              if (data.type === 'text' && data.content) {
-                currentMessageRef.current += data.content;
-                
-                // Update or create AI message
-                setMessages((prev) => {
-                  const existingIndex = prev.findIndex(m => m.id === aiMessageId);
-                  if (existingIndex >= 0) {
-                    const updated = [...prev];
-                    updated[existingIndex] = {
-                      ...updated[existingIndex],
-                      content: currentMessageRef.current,
-                    };
-                    return updated;
-                  } else {
-                    return [
-                      ...prev,
-                      {
-                        id: aiMessageId,
-                        type: 'ai',
-                        content: currentMessageRef.current,
-                        timestamp: new Date(),
-                      },
-                    ];
-                  }
-                });
-              } else if (data.type === 'done') {
-                // Streaming complete
-                setIsTyping(false);
-              } else if (data.type === 'meta') {
-                // Persist safe images so user doesn't need to repeat "az önceki fotoğraf"
-                const safe = Array.isArray(data.safe_media_paths) ? (data.safe_media_paths as string[]) : [];
-                const blocked = Array.isArray(data.blocked_media_paths) ? data.blocked_media_paths : [];
-                const blockedPaths = blocked
-                  .map((b: any) => (b && typeof b === 'object' ? b.path : null))
-                  .filter(Boolean) as string[];
-
-                const nextPending = dedupePaths([
-                  ...(pendingMediaPathsRef.current || []),
-                  ...safe,
-                ]).filter(p => !blockedPaths.includes(p));
-
-                pendingMediaPathsRef.current = nextPending;
-                
-                // Show user-friendly feedback about blocked photos (don't count them as uploaded)
-                if (blocked.length > 0) {
-                  const blockedMessage: Message = {
-                    id: `${Date.now()}_blocked`,
-                    type: 'ai',
-                    content: `⚠️ ${blocked.length} fotoğraf güvenlik kontrolünden geçemedi ve elendi. ${safe.length} fotoğraf güvenli olarak kaydedildi.`,
-                    timestamp: new Date(),
-                  };
-                  setMessages((prev) => [...prev, blockedMessage]);
-                }
-
-                // Also inject a hidden system note into conversation history so backend agents can use images
-                // without re-sending media_paths (avoids repeated vision safety checks).
-                const mediaNote = `[SYSTEM_MEDIA_NOTE] MEDIA_PATHS=${JSON.stringify(nextPending)}`;
-                const last = conversationHistory.current[conversationHistory.current.length - 1];
-                if (!last || last.role !== 'assistant' || last.content !== mediaNote) {
-                  conversationHistory.current.push({ role: 'assistant', content: mediaNote });
-                }
-              } else if (data.type === 'error') {
-                throw new Error(data.content || 'Backend hatası oluştu');
-              }
-            } catch (parseError) {
-              console.error('SSE parse hatası:', parseError, 'Line:', line);
-            }
-          }
-        }
-      }
+      return;
     } catch (err: any) {
       console.error('Agent bağlantı hatası:', err);
-      
-      // Determine error type and message
+
       let errorMessage = 'Bağlantı hatası. Lütfen tekrar deneyin.';
-      
+
       if (err.name === 'TypeError' && err.message.includes('fetch')) {
-        errorMessage = 'Backend\'e ulaşılamıyor. CORS veya network hatası olabilir.';
+        errorMessage = 'Agent API adresine ulaşılamıyor. CORS veya network hatası olabilir.';
       } else if (err.message) {
         errorMessage = err.message;
       }
-      
+
       setError(errorMessage);
       setIsTyping(false);
       setIsConnecting(false);
-      
-      // Add error message
+
       const errorAiMessage: Message = {
         id: (Date.now() + 1).toString(),
         type: 'ai',
-        content: '⚠️ Üzgünüm, şu anda bağlantı kuramıyorum. Backend servisi çalışıyor mu kontrol edin. Lütfen daha sonra tekrar deneyin.',
+        content: "⚠️ Üzgünüm, şu anda Agent API'ye bağlanamıyorum. Backend'in çalıştığından ve VITE_AGENT_API_BASE'in doğru olduğundan emin olduktan sonra tekrar deneyin.",
         timestamp: new Date(),
       };
       setMessages((prev) => [...prev, errorAiMessage]);
@@ -458,11 +449,15 @@ export default function ChatBox() {
     setInputValue('');
 
     if (messageToSend.toLowerCase().trim().startsWith('iptal')) {
-      pendingMediaPathsRef.current = [];
+      clearPendingMedia();
     }
     
+    // Include any pending media from image uploads
+    const mediaPaths = pendingMediaPathsRef.current || [];
+    
     // Send to agent backend
-    sendMessageToAgent(messageToSend);
+    const options = mediaPaths.length > 0 ? { mediaPaths, mediaType: 'image' } : undefined;
+    sendMessageToAgent(messageToSend, options);
   };
 
   const handleQuickAction = (action: string) => {
@@ -525,7 +520,7 @@ export default function ChatBox() {
 
     const run = async () => {
       const resolvedUserId = customUser?.id || user?.id || localStorage.getItem('user_id') || getUserId();
-      const uploadedPaths: string[] = [];
+      const uploadedItems: Array<{ path: string; publicUrl: string }> = [];
 
       setIsTyping(true);
       try {
@@ -538,7 +533,7 @@ export default function ChatBox() {
             }
 
             const { storagePath, publicUrl } = await uploadImageToSupabase(uploadFile, resolvedUserId);
-            uploadedPaths.push(storagePath);
+            uploadedItems.push({ path: storagePath, publicUrl });
 
             const uploadedMessage: Message = {
               id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
@@ -560,24 +555,23 @@ export default function ChatBox() {
             setMessages((prev) => [...prev, errorMessage]);
           }
         }
+
+        if (uploadedItems.length > 0) {
+          addPendingMediaItems(uploadedItems);
+          const uniquePaths = dedupePaths(uploadedItems.map((item) => item.path));
+          const analysisShown = await requestMediaAnalysis(uniquePaths, resolvedUserId);
+          if (!analysisShown) {
+            const intentQuestion: Message = {
+              id: `${Date.now()}_intent_q`,
+              type: 'ai',
+              content: `📸 ${uniquePaths.length} fotoğraf başarıyla yüklendi!\n\nBu ürün için ne yapmak istiyorsunuz?\n• 📝 İlan oluşturmak (satmak)\n• 🔍 Benzer ürünleri aramak`,
+              timestamp: new Date(),
+            };
+            setMessages((prev) => [...prev, intentQuestion]);
+          }
+        }
       } finally {
         setIsTyping(false);
-      }
-
-      const uniquePaths = dedupePaths(uploadedPaths);
-      if (uniquePaths.length > 0) {
-        sendMessageToAgent(`Fotoğraf yükledim (${uniquePaths.length} adet)`, {
-          mediaPaths: uniquePaths,
-          mediaType: 'image',
-        });
-
-        const infoMessage: Message = {
-          id: `${Date.now()}_${Math.random().toString(36).slice(2)}`,
-          type: 'ai',
-          content: '📥 Görsel(ler) yüklendi, ürün analizi başlatılıyor...',
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, infoMessage]);
       }
     };
 
@@ -605,35 +599,6 @@ export default function ChatBox() {
   };
 
   // Removed: Speech is now triggered immediately in sendMessageToAgent
-
-  const toggleRecording = () => {
-    setIsRecording(!isRecording);
-    if (!isRecording) {
-      setTimeout(() => {
-        setIsRecording(false);
-        const newMessage: Message = {
-          id: Date.now().toString(),
-          type: 'user',
-          content: '🎤 Sesli mesaj kaydedildi',
-          timestamp: new Date(),
-        };
-        setMessages((prev) => [...prev, newMessage]);
-        
-        // TODO: Implement voice message to agent backend
-        setIsTyping(true);
-        setTimeout(() => {
-          const aiResponse: Message = {
-            id: (Date.now() + 1).toString(),
-            type: 'ai',
-            content: 'Sesli mesaj özelliği yakında aktif olacak!',
-            timestamp: new Date(),
-          };
-          setMessages((prev) => [...prev, aiResponse]);
-          setIsTyping(false);
-        }, 1500);
-      }, 3000);
-    }
-  };
 
   const quickActions = [
     { id: 'create', icon: 'ri-add-circle-line', label: 'İlan Oluştur', color: 'from-purple-500 to-blue-500' },
@@ -737,14 +702,12 @@ export default function ChatBox() {
               )}
               
               {listing.condition && (
-                <span className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${
-                  listing.condition === 'new' 
-                    ? 'bg-green-100 text-green-700'
-                    : listing.condition === 'used'
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-gray-100 text-gray-700'
-                }`}>
-                  {listing.condition === 'new' ? 'Sıfır' : listing.condition === 'used' ? '2. El' : 'Yenilenmiş'}
+                <span
+                  className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded-full ${conditionBadgeClass(
+                    listing.condition
+                  )}`}
+                >
+                  {toCanonicalCondition(listing.condition)}
                 </span>
               )}
 
@@ -914,52 +877,6 @@ export default function ChatBox() {
     );
   };
 
-  const renderMessage = (msg: Message) => {
-    const isUser = msg.role === 'user';
-    const { cleanContent, listings } = parseListings(msg.content);
-
-    return (
-      <div
-        key={msg.id}
-        className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-4`}
-      >
-        <div className={`flex items-start space-x-2 max-w-[85%] ${isUser ? 'flex-row-reverse space-x-reverse' : ''}`}>
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${
-            isUser ? 'bg-purple-600' : 'bg-gray-200'
-          }`}>
-            <i className={`${isUser ? 'ri-user-line text-white' : 'ri-robot-line text-gray-600'}`}></i>
-          </div>
-          <div className="flex flex-col space-y-2 flex-1 min-w-0">
-            <div
-              className={`px-4 py-3 rounded-2xl break-words whitespace-pre-wrap ${
-                isUser
-                  ? 'bg-purple-600 text-white rounded-tr-none'
-                  : 'bg-gray-100 text-gray-900 rounded-tl-none'
-              }`}
-            >
-              {cleanContent}
-            </div>
-            
-            {/* Render Listings */}
-            {listings.length > 0 && (
-              <div className="space-y-2">
-                {listings.slice(0, 3).map((listing) => renderListingCard(listing))}
-                {listings.length > 3 && (
-                  <button
-                    onClick={() => navigate('/listings')}
-                    className="w-full py-2 text-sm text-purple-600 hover:text-purple-700 font-medium transition-colors"
-                  >
-                    Tüm İlanları Gör ({listings.length} ilan)
-                  </button>
-                )}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
   return (
     <>
       {/* FAB Button */}
@@ -1102,7 +1019,20 @@ export default function ChatBox() {
                       
                       <div className="space-y-1 flex-1">
                         {group.map((message, msgIdx) => {
-                          const { cleanContent, listings } = parseListings(message.content);
+                          // Parse listings from message content
+                          let listings: any[] = [];
+                          let cleanContent = message.content;
+                          
+                          const cacheMatch = message.content.match(/\[SEARCH_CACHE\]({.*})/s);
+                          if (cacheMatch) {
+                            try {
+                              const cacheData = JSON.parse(cacheMatch[1]);
+                              listings = cacheData.results || [];
+                              cleanContent = message.content.replace(/\[SEARCH_CACHE\]({.*})/s, '').trim();
+                            } catch (e) {
+                              console.error('Failed to parse listings:', e);
+                            }
+                          }
 
                           return (
                             <div key={message.id} className="space-y-2">
@@ -1115,17 +1045,13 @@ export default function ChatBox() {
                               >
                                 {isUser ? (
                                   <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-                                    {cleanContent
-                                      .replace(/Fotoğraflar:\s*https?:\/\/[^\s]+/g, '')
-                                      .replace(/https?:\/\/[^\s]+/g, '')
-                                      .replace(/\n{3,}/g, '\n\n')
-                                      .trim()}
+                                    {cleanContent.replace(/\n{3,}/g, '\n\n').trim()}
                                   </p>
                                 ) : (
                                   <ReactMarkdown
                                     className="prose prose-sm max-w-none prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5"
                                     components={{
-                                      code({ node, inline, className, children, ...props }) {
+                                      code({ inline, children, ...props }: any) {
                                         return inline ? (
                                           <code className="bg-purple-50 text-purple-700 px-1 py-0.5 rounded text-xs font-mono" {...props}>
                                             {children}
@@ -1136,20 +1062,26 @@ export default function ChatBox() {
                                           </code>
                                         );
                                       },
-                                      a({ node, href, children, ...props }) {
+                                      a({ href, children, ...props }: any) {
                                         return (
                                           <a href={href} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline" {...props}>
                                             {children}
                                           </a>
                                         );
                                       },
+                                      img({ src, alt, ...props }: any) {
+                                        return (
+                                          <img
+                                            src={src || ''}
+                                            alt={alt || ''}
+                                            className="my-2 rounded-lg max-h-64 w-full object-cover"
+                                            {...props}
+                                          />
+                                        );
+                                      },
                                     }}
                                   >
-                                    {cleanContent
-                                      .replace(/Fotoğraflar:\s*https?:\/\/[^\s]+/g, '')
-                                      .replace(/https?:\/\/[^\s]+/g, '')
-                                      .replace(/\n{3,}/g, '\n\n')
-                                      .trim()}
+                                    {cleanContent.replace(/\n{3,}/g, '\n\n').trim()}
                                   </ReactMarkdown>
                                 )}
                               </div>
@@ -1306,3 +1238,5 @@ export default function ChatBox() {
     </>
   );
 }
+
+
